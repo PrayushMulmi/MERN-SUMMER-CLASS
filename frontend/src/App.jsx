@@ -4,27 +4,57 @@ import RecipeGrid from "./components/RecipeGrid.jsx";
 import RecipeDetail from "./components/RecipeDetail.jsx";
 import AddRecipeForm from "./components/AddRecipeForm.jsx";
 import SearchBar from "./components/SearchBar.jsx";
+import CuisineFilter from "./components/CuisineFilter.jsx";
 import Dashboard from "./components/Dashboard.jsx";
-import initialRecipes from "./data/recipes.js";
+import { fetchRecipes, createRecipe, deleteRecipe } from "./api/recipes.js";
 
 function App() {
-  // 1. Recipes now live in state, seeded from the Week 1 hardcoded data.
-  const [recipes, setRecipes] = useState(initialRecipes);
+  // Week 4: recipes now come from MongoDB via the API — no more hardcoded import.
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Which nav section is active: "Browse Recipes" | "My Recipes" | "Add Recipe"
+  // Full cuisine list for the filter dropdown, captured once from the
+  // unfiltered list so the options don't shrink as the user filters.
+  const [cuisines, setCuisines] = useState([]);
+
   const [activeView, setActiveView] = useState("Browse Recipes");
-
-  // The recipe currently expanded into detail view (null = showing the grid)
   const [selectedRecipe, setSelectedRecipe] = useState(null);
-
-  // Live search query
   const [query, setQuery] = useState("");
-
-  // Dashboard stats, recomputed whenever the recipes list changes
+  const [cuisineFilter, setCuisineFilter] = useState("");
   const [stats, setStats] = useState({ total: 0, avgCookTime: 0 });
 
-  // 6. useEffect: recompute total count + average cook time whenever
-  // the recipes array changes.
+  // Load the full recipe list once, on mount, to populate the cuisine dropdown.
+  useEffect(() => {
+    fetchRecipes()
+      .then((data) => {
+        const uniqueCuisines = [...new Set(data.map((r) => r.cuisine))].sort();
+        setCuisines(uniqueCuisines);
+      })
+      .catch((err) => console.error("Failed to load cuisines:", err));
+  }, []);
+
+  // Re-fetch from the backend whenever the search term or cuisine filter
+  // changes (debounced so we don't fire a request on every keystroke).
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+
+    const timeoutId = setTimeout(() => {
+      fetchRecipes({
+        search: query || undefined,
+        cuisine: cuisineFilter || undefined,
+      })
+        .then(setRecipes)
+        .catch((err) => setError(err.message))
+        .finally(() => setLoading(false));
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [query, cuisineFilter]);
+
+  // useEffect: recompute total count + average cook time whenever the
+  // (filtered) recipes list changes.
   useEffect(() => {
     const total = recipes.length;
     const avgCookTime = total
@@ -33,20 +63,29 @@ function App() {
     setStats({ total, avgCookTime });
   }, [recipes]);
 
-  // 5. Live filter by title (case-insensitive), recalculated on each render
-  const filteredRecipes = recipes.filter((r) =>
-    r.title.toLowerCase().includes(query.toLowerCase()),
-  );
-
-  const handleAddRecipe = (newRecipe) => {
-    setRecipes((prev) => [...prev, newRecipe]);
-    setActiveView("Browse Recipes");
+  const handleAddRecipe = async (newRecipe) => {
+    try {
+      const created = await createRecipe(newRecipe);
+      setRecipes((prev) => [created, ...prev]);
+      setCuisines((prev) =>
+        prev.includes(created.cuisine)
+          ? prev
+          : [...prev, created.cuisine].sort(),
+      );
+      setActiveView("Browse Recipes");
+    } catch (err) {
+      alert(`Failed to save recipe: ${err.message}`);
+    }
   };
 
-  const handleDeleteRecipe = (id) => {
-    setRecipes((prev) => prev.filter((r) => r.id !== id));
-    // If the deleted recipe was open in detail view, close it.
-    setSelectedRecipe((prev) => (prev?.id === id ? null : prev));
+  const handleDeleteRecipe = async (id) => {
+    try {
+      await deleteRecipe(id);
+      setRecipes((prev) => prev.filter((r) => r._id !== id));
+      setSelectedRecipe((prev) => (prev?._id === id ? null : prev));
+    } catch (err) {
+      alert(`Failed to delete recipe: ${err.message}`);
+    }
   };
 
   const handleNavigate = (view) => {
@@ -81,13 +120,32 @@ function App() {
                   averageCookTime={stats.avgCookTime}
                 />
 
-                <SearchBar value={query} onChange={setQuery} />
+                <div className="flex flex-wrap gap-3 px-6 pt-6">
+                  <SearchBar value={query} onChange={setQuery} />
+                  <CuisineFilter
+                    cuisines={cuisines}
+                    value={cuisineFilter}
+                    onChange={setCuisineFilter}
+                  />
+                </div>
 
-                <RecipeGrid
-                  recipes={filteredRecipes}
-                  onCardClick={setSelectedRecipe}
-                  onDelete={handleDeleteRecipe}
-                />
+                {error && (
+                  <p className="text-center text-red-600 py-6">
+                    Couldn't reach the API: {error}
+                  </p>
+                )}
+
+                {loading && !error ? (
+                  <p className="text-center text-gray-500 py-12">
+                    Loading recipes...
+                  </p>
+                ) : (
+                  <RecipeGrid
+                    recipes={recipes}
+                    onCardClick={setSelectedRecipe}
+                    onDelete={handleDeleteRecipe}
+                  />
+                )}
               </>
             )}
           </>

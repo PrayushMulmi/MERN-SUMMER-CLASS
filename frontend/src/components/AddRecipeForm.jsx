@@ -48,7 +48,6 @@ function AddRecipeForm({ onAddRecipe }) {
     }
 
     const newRecipe = {
-      id: Date.now(),
       title: form.title.trim(),
       cuisine: form.cuisine.trim(),
       cookTime: Number(form.cookTime),

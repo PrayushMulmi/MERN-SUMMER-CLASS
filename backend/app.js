@@ -1,23 +1,27 @@
 import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { connectDB } from "./src/config/db.js";
+import recipeRoutes from "./src/routes/recipeRoutes.js";
+import ingredientRoutes from "./src/routes/ingredientRoutes.js";
 
-import recipes from "./data/recipes.js";
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-const PORT = 3000;
+app.use(cors());
+app.use(express.json());
 
-app.get("/recipes", (req, res) => {
-  return res.json(recipes);
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
-app.post("/recipes", (req, res) => {
-  const recipe = req.body;
+app.use("/api/recipes", recipeRoutes);
+app.use("/api/ingredients", ingredientRoutes);
 
-  recipes.push(recipe);
-
-  return res.status(201).json({ message: "Recipe added to the database." });
-});
-
-app.listen(PORT, () => {
-  console.log(`Backend running on port: ${PORT}`);
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
 });

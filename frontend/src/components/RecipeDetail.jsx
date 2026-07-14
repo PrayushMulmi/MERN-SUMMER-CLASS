@@ -52,7 +52,7 @@ function RecipeDetail({ recipe, onClose, onDelete }) {
         </button>
 
         <button
-          onClick={() => onDelete(recipe.id)}
+          onClick={() => onDelete(recipe._id)}
           className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
         >
           Delete Recipe

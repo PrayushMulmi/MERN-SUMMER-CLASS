@@ -1,121 +1,114 @@
-const recipes = [
+// Run with: npm run seed
+// Wipes the recipes collection and reloads it with the same 5 sample
+// recipes used in Weeks 1-3, so you have real data to test filtering
+// and search against once you're on MongoDB.
+import dotenv from "dotenv";
+import { connectDB } from "../config/db.js";
+import Recipe from "../models/recipe.js";
+import mongoose from "mongoose";
+
+dotenv.config();
+
+const sampleRecipes = [
   {
-    id: 1,
     title: "Margherita Pizza",
     cuisine: "Italian",
     cookTime: 25,
     difficulty: "Medium",
-    image: null,
     ingredients: [
       "1 pizza dough ball",
       "1/2 cup tomato sauce",
       "150g fresh mozzarella, sliced",
       "Fresh basil leaves",
-      "2 tbsp olive oil",
-      "Salt to taste",
     ],
     steps: [
-      "Preheat oven to 250°C (480°F) with a pizza stone if available.",
-      "Stretch the dough into a 12-inch round on a floured surface.",
-      "Spread tomato sauce evenly, leaving a small border for the crust.",
-      "Arrange mozzarella slices over the sauce.",
-      "Bake for 8-10 minutes until the crust is golden and cheese bubbles.",
-      "Top with fresh basil and a drizzle of olive oil before serving.",
+      "Preheat oven to 250°C with a pizza stone if available.",
+      "Stretch the dough into a 12-inch round.",
+      "Spread tomato sauce, add mozzarella, and bake 8-10 minutes.",
+      "Top with fresh basil before serving.",
     ],
   },
   {
-    id: 2,
     title: "Chicken Tikka Masala",
     cuisine: "Indian",
     cookTime: 45,
     difficulty: "Medium",
-    image: null,
     ingredients: [
       "500g chicken breast, cubed",
       "1 cup plain yogurt",
       "2 tbsp tikka masala spice mix",
-      "1 onion, diced",
-      "3 cloves garlic, minced",
       "1 cup tomato puree",
       "1/2 cup heavy cream",
     ],
     steps: [
-      "Marinate chicken in yogurt and half the spice mix for at least 1 hour.",
-      "Grill or pan-sear the chicken until charred at the edges; set aside.",
-      "Sauté onion and garlic until soft, then add remaining spices.",
-      "Stir in tomato puree and simmer for 10 minutes.",
-      "Add cream and cooked chicken, simmer for another 10 minutes.",
-      "Serve hot with rice or naan.",
+      "Marinate chicken in yogurt and spices for 1 hour.",
+      "Grill chicken until charred; set aside.",
+      "Simmer tomato puree with spices for 10 minutes.",
+      "Add cream and chicken, simmer 10 more minutes.",
     ],
   },
   {
-    id: 3,
     title: "Avocado Toast",
     cuisine: "American",
     cookTime: 10,
     difficulty: "Easy",
-    image: null,
     ingredients: [
       "2 slices sourdough bread",
       "1 ripe avocado",
       "1/2 lemon, juiced",
       "Red chili flakes",
-      "Salt and pepper to taste",
     ],
     steps: [
-      "Toast the sourdough slices until golden and crisp.",
-      "Mash the avocado with lemon juice, salt, and pepper.",
-      "Spread the avocado mixture evenly over the toast.",
-      "Sprinkle with chili flakes and serve immediately.",
+      "Toast the sourdough until golden.",
+      "Mash avocado with lemon juice, salt, and pepper.",
+      "Spread over toast and sprinkle with chili flakes.",
     ],
   },
   {
-    id: 4,
     title: "Beef Wellington",
     cuisine: "British",
     cookTime: 90,
     difficulty: "Hard",
-    image: null,
     ingredients: [
       "800g beef tenderloin",
       "300g mushrooms, finely chopped",
       "6 slices prosciutto",
       "1 sheet puff pastry",
       "2 tbsp Dijon mustard",
-      "2 egg yolks, beaten",
     ],
     steps: [
-      "Sear the beef tenderloin on all sides, then brush with mustard.",
-      "Cook down mushrooms with herbs until all moisture evaporates (duxelles).",
-      "Lay out prosciutto, spread duxelles, and wrap around the beef.",
-      "Wrap the bundle tightly in puff pastry and brush with egg yolk.",
-      "Bake at 200°C (400°F) for 35-40 minutes until pastry is golden.",
-      "Rest for 10 minutes before slicing.",
+      "Sear beef on all sides, then brush with mustard.",
+      "Cook mushrooms down into a dry duxelles.",
+      "Wrap beef in prosciutto and duxelles, then puff pastry.",
+      "Bake at 200°C for 35-40 minutes; rest before slicing.",
     ],
   },
   {
-    id: 5,
     title: "Vegetable Stir Fry",
     cuisine: "Chinese",
     cookTime: 20,
     difficulty: "Easy",
-    image: null,
     ingredients: [
-      "2 cups mixed vegetables (broccoli, carrot, bell pepper)",
+      "2 cups mixed vegetables",
       "2 tbsp soy sauce",
       "1 tbsp sesame oil",
       "2 cloves garlic, minced",
-      "1 tsp ginger, minced",
-      "1 tbsp vegetable oil",
     ],
     steps: [
-      "Heat vegetable oil in a wok over high heat.",
-      "Add garlic and ginger, stir for 30 seconds until fragrant.",
-      "Add vegetables and stir-fry for 5-7 minutes until crisp-tender.",
-      "Pour in soy sauce and sesame oil, toss to coat.",
-      "Serve hot over rice or noodles.",
+      "Heat oil, add garlic and ginger until fragrant.",
+      "Add vegetables, stir-fry 5-7 minutes.",
+      "Toss with soy sauce and sesame oil before serving.",
     ],
   },
 ];
 
-export default recipes;
+async function seed() {
+  await connectDB();
+  await Recipe.deleteMany({});
+  await Recipe.insertMany(sampleRecipes);
+  console.log(`Seeded ${sampleRecipes.length} recipes.`);
+  await mongoose.disconnect();
+  process.exit(0);
+}
+
+seed();

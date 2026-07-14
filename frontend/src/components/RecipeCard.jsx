@@ -36,7 +36,7 @@ function RecipeCard({ recipe, onClick, onDelete }) {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete(recipe.id);
+                onDelete(recipe._id);
               }}
               className="text-xs text-red-600 hover:text-red-800 font-medium"
             >
