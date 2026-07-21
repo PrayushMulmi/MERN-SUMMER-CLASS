@@ -182,9 +182,20 @@ function App() {
             <p className="text-gray-500 px-6">Recipes you've posted.</p>
 
             {!user ? (
-              <p className="text-center text-gray-500 py-16">
-                Log in to see the recipes you've posted.
-              </p>
+              <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-6 my-6 text-center flex flex-col gap-3">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Log in to see your recipes
+                </h2>
+                <p className="text-gray-500 text-sm">
+                  You need an account to view the recipes you've posted.
+                </p>
+                <button
+                  onClick={() => handleNavigate("Login")}
+                  className="mt-2 bg-green-800 hover:bg-green-700 text-white rounded-md px-4 py-2 font-medium"
+                >
+                  Log In
+                </button>
+              </div>
             ) : myRecipesError ? (
               <p className="text-center text-red-600 py-6">
                 Couldn't reach the API: {myRecipesError}
@@ -209,7 +220,6 @@ function App() {
             )}
           </>
         )}
-
         {activeView === "Add Recipe" &&
           (user ? (
             <AddRecipeForm onAddRecipe={handleAddRecipe} />
