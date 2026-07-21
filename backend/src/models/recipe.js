@@ -12,8 +12,11 @@ const recipeSchema = new mongoose.Schema(
     },
     ingredients: { type: [String], default: [] },
     steps: { type: [String], default: [] },
-    // Placeholder for now — will hold a User reference once auth exists.
-    createdBy: { type: String, default: "anonymous" },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true },
 );

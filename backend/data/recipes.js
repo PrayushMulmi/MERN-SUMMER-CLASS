@@ -3,8 +3,9 @@
 // recipes used in Weeks 1-3, so you have real data to test filtering
 // and search against once you're on MongoDB.
 import dotenv from "dotenv";
-import { connectDB } from "../config/db.js";
-import Recipe from "../models/recipe.js";
+import { connectDB } from "../src/config/db.js";
+import Recipe from "../src/models/recipe.js";
+import User from "../src/models/User.js";
 import mongoose from "mongoose";
 
 dotenv.config();
@@ -102,10 +103,30 @@ const sampleRecipes = [
   },
 ];
 
+// Week 5: createdBy is now a required User ref. Seeded recipes get
+// attributed to this placeholder account (created if it doesn't exist yet)
+// instead of the old "anonymous" string.
+async function getOrCreateSeedUser() {
+  const email = "seed@recipesharing.local";
+  let user = await User.findOne({ email });
+  if (!user) {
+    user = await User.create({
+      name: "Recipe Sharing Team",
+      email,
+      password: "seed-user-placeholder",
+    });
+  }
+  return user;
+}
+
 async function seed() {
   await connectDB();
+  const seedUser = await getOrCreateSeedUser();
+
   await Recipe.deleteMany({});
-  await Recipe.insertMany(sampleRecipes);
+  await Recipe.insertMany(
+    sampleRecipes.map((recipe) => ({ ...recipe, createdBy: seedUser._id })),
+  );
   console.log(`Seeded ${sampleRecipes.length} recipes.`);
   await mongoose.disconnect();
   process.exit(0);

@@ -1,4 +1,5 @@
 import Recipe from "../models/recipe.js";
+import User from "../models/User.js";
 
 // GET /api/recipes
 // GET /api/recipes?cuisine=Italian
@@ -18,7 +19,9 @@ export async function getAllRecipes(req, res) {
       filter.$text = { $search: search };
     }
 
-    const recipes = await Recipe.find(filter).sort({ createdAt: -1 });
+    const recipes = await Recipe.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("createdBy", "name");
     res.status(200).json(recipes);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -28,7 +31,10 @@ export async function getAllRecipes(req, res) {
 // GET /api/recipes/:id
 export async function getRecipeById(req, res) {
   try {
-    const recipe = await Recipe.findById(req.params.id);
+    const recipe = await Recipe.findById(req.params.id).populate(
+      "createdBy",
+      "name",
+    );
     if (!recipe) {
       return res.status(404).json({ message: "Recipe not found" });
     }
@@ -42,15 +48,8 @@ export async function getRecipeById(req, res) {
 // POST /api/recipes
 export async function createRecipe(req, res) {
   try {
-    const {
-      title,
-      cuisine,
-      cookTime,
-      difficulty,
-      ingredients,
-      steps,
-      createdBy,
-    } = req.body;
+    const { title, cuisine, cookTime, difficulty, ingredients, steps } =
+      req.body;
 
     if (!title || !cuisine || !cookTime || !difficulty) {
       return res.status(400).json({
@@ -65,10 +64,11 @@ export async function createRecipe(req, res) {
       difficulty,
       ingredients: ingredients || [],
       steps: steps || [],
-      createdBy: createdBy || "anonymous",
+      createdBy: req.user.id,
     });
 
-    res.status(201).json(recipe);
+    const populated = await recipe.populate("createdBy", "name");
+    res.status(201).json(populated);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -77,10 +77,17 @@ export async function createRecipe(req, res) {
 // DELETE /api/recipes/:id
 export async function deleteRecipe(req, res) {
   try {
-    const deleted = await Recipe.findByIdAndDelete(req.params.id);
-    if (!deleted) {
+    const recipe = await Recipe.findById(req.params.id);
+    if (!recipe) {
       return res.status(404).json({ message: "Recipe not found" });
     }
+    if (recipe.createdBy.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "You can only delete your own recipes" });
+    }
+
+    await recipe.deleteOne();
     res.status(200).json({ message: "Recipe deleted" });
   } catch (err) {
     res.status(400).json({ message: "Invalid recipe id" });
@@ -110,7 +117,7 @@ export async function matchRecipes(req, res) {
     }
 
     const selected = ingredients.map((i) => String(i).toLowerCase().trim());
-    const allRecipes = await Recipe.find();
+    const allRecipes = await Recipe.find().populate("createdBy", "name");
 
     const scored = allRecipes.map((recipe) => {
       const recipeIngredients = recipe.ingredients.map((i) => i.toLowerCase());
@@ -125,14 +132,12 @@ export async function matchRecipes(req, res) {
     );
     filtered.sort((a, b) => b.matchedCount - a.matchedCount);
 
-    res
-      .status(200)
-      .json(
-        filtered.map(({ recipe, matchedCount }) => ({
-          ...recipe.toObject(),
-          matchedIngredientCount: matchedCount,
-        })),
-      );
+    res.status(200).json(
+      filtered.map(({ recipe, matchedCount }) => ({
+        ...recipe.toObject(),
+        matchedIngredientCount: matchedCount,
+      })),
+    );
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -141,13 +146,60 @@ export async function matchRecipes(req, res) {
 // PUT /api/recipes/:id
 export async function updateRecipe(req, res) {
   try {
-    const updated = await Recipe.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!updated) return res.status(404).json({ message: "Recipe not found" });
-    res.status(200).json(updated);
+    const recipe = await Recipe.findById(req.params.id);
+    if (!recipe) return res.status(404).json({ message: "Recipe not found" });
+    if (recipe.createdBy.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "You can only edit your own recipes" });
+    }
+
+    // createdBy is derived from the token, not client input — never let it
+    // be overwritten via the request body.
+    const { createdBy, ...updates } = req.body;
+    Object.assign(recipe, updates);
+    await recipe.save();
+    await recipe.populate("createdBy", "name");
+
+    res.status(200).json(recipe);
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+}
+
+// POST /api/recipes/:id/favourite — protected. Toggles the recipe in
+// req.user's favourites list; returns the updated favourites array.
+export async function toggleFavourite(req, res) {
+  try {
+    const recipe = await Recipe.findById(req.params.id);
+    if (!recipe) return res.status(404).json({ message: "Recipe not found" });
+
+    const user = await User.findById(req.user.id);
+    const index = user.favourites.findIndex(
+      (favId) => favId.toString() === req.params.id,
+    );
+
+    if (index === -1) {
+      user.favourites.push(req.params.id);
+    } else {
+      user.favourites.splice(index, 1);
+    }
+
+    await user.save();
+    res.status(200).json({ favourites: user.favourites });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+}
+
+// GET /api/recipes/mine — protected, returns only recipes created by the logged-in user
+export async function getMyRecipes(req, res) {
+  try {
+    const recipes = await Recipe.find({ createdBy: req.user.id })
+      .populate("createdBy", "name")
+      .sort({ createdAt: -1 });
+    res.status(200).json(recipes);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 }

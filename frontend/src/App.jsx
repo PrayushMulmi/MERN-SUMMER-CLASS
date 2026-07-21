@@ -6,13 +6,24 @@ import AddRecipeForm from "./components/AddRecipeForm.jsx";
 import SearchBar from "./components/SearchBar.jsx";
 import CuisineFilter from "./components/CuisineFilter.jsx";
 import Dashboard from "./components/Dashboard.jsx";
+import Login from "./components/Login.jsx";
+import Register from "./components/Register.jsx";
+import MyFavourites from "./components/MyFavourites.jsx";
 import { fetchRecipes, createRecipe, deleteRecipe } from "./api/recipes.js";
+import { useAuth } from "./context/AuthContext.jsx";
+import { fetchMyRecipes } from "./api/recipes.js";
 
 function App() {
+  const { user } = useAuth();
+
   // Week 4: recipes now come from MongoDB via the API — no more hardcoded import.
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [myRecipes, setMyRecipes] = useState([]);
+  const [myRecipesLoading, setMyRecipesLoading] = useState(false);
+  const [myRecipesError, setMyRecipesError] = useState(null);
 
   // Full cuisine list for the filter dropdown, captured once from the
   // unfiltered list so the options don't shrink as the user filters.
@@ -23,6 +34,18 @@ function App() {
   const [query, setQuery] = useState("");
   const [cuisineFilter, setCuisineFilter] = useState("");
   const [stats, setStats] = useState({ total: 0, avgCookTime: 0 });
+
+  useEffect(() => {
+    if (activeView !== "My Recipes") return;
+    if (!user) return; // not logged in — nothing to fetch
+
+    setMyRecipesLoading(true);
+    setMyRecipesError(null);
+    fetchMyRecipes()
+      .then(setMyRecipes)
+      .catch((err) => setMyRecipesError(err.message))
+      .finally(() => setMyRecipesLoading(false));
+  }, [activeView, user]);
 
   // Load the full recipe list once, on mount, to populate the cuisine dropdown.
   useEffect(() => {
@@ -152,15 +175,89 @@ function App() {
         )}
 
         {activeView === "My Recipes" && (
-          <p className="text-center text-gray-500 py-16">
-            "My Recipes" is coming in a future week — this will show recipes
-            saved or created by the logged-in user.
-          </p>
+          <>
+            <h1 className="text-3xl font-bold text-gray-900 px-6 pt-8">
+              My Recipes
+            </h1>
+            <p className="text-gray-500 px-6">Recipes you've posted.</p>
+
+            {!user ? (
+              <p className="text-center text-gray-500 py-16">
+                Log in to see the recipes you've posted.
+              </p>
+            ) : myRecipesError ? (
+              <p className="text-center text-red-600 py-6">
+                Couldn't reach the API: {myRecipesError}
+              </p>
+            ) : myRecipesLoading ? (
+              <p className="text-center text-gray-500 py-12">
+                Loading your recipes...
+              </p>
+            ) : myRecipes.length === 0 ? (
+              <p className="text-center text-gray-500 py-16">
+                You haven't posted any recipes yet.
+              </p>
+            ) : (
+              <RecipeGrid
+                recipes={myRecipes}
+                onCardClick={setSelectedRecipe}
+                onDelete={(id) => {
+                  handleDeleteRecipe(id);
+                  setMyRecipes((prev) => prev.filter((r) => r._id !== id));
+                }}
+              />
+            )}
+          </>
         )}
 
-        {activeView === "Add Recipe" && (
-          <AddRecipeForm onAddRecipe={handleAddRecipe} />
+        {activeView === "Add Recipe" &&
+          (user ? (
+            <AddRecipeForm onAddRecipe={handleAddRecipe} />
+          ) : (
+            <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-6 my-6 text-center flex flex-col gap-3">
+              <h2 className="text-xl font-bold text-gray-900">
+                Log in to add a recipe
+              </h2>
+              <p className="text-gray-500 text-sm">
+                You need an account to share recipes with the community.
+              </p>
+              <button
+                onClick={() => handleNavigate("Login")}
+                className="mt-2 bg-green-800 hover:bg-green-700 text-white rounded-md px-4 py-2 font-medium"
+              >
+                Log In
+              </button>
+            </div>
+          ))}
+
+        {activeView === "Login" && (
+          <Login
+            onSuccess={() => handleNavigate("Browse Recipes")}
+            onSwitchToRegister={() => handleNavigate("Register")}
+          />
         )}
+
+        {activeView === "Register" && (
+          <Register
+            onSuccess={() => handleNavigate("Browse Recipes")}
+            onSwitchToLogin={() => handleNavigate("Login")}
+          />
+        )}
+
+        {activeView === "My Favourites" &&
+          (!user ? (
+            <p className="text-center text-gray-500 py-16">
+              Log in to see your favourite recipes.
+            </p>
+          ) : selectedRecipe ? (
+            <RecipeDetail
+              recipe={selectedRecipe}
+              onClose={() => setSelectedRecipe(null)}
+              onDelete={handleDeleteRecipe}
+            />
+          ) : (
+            <MyFavourites onCardClick={setSelectedRecipe} />
+          ))}
       </main>
     </div>
   );

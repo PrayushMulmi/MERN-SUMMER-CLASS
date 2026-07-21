@@ -7,10 +7,27 @@ const API_BASE_URL =
 
 const api = axios.create({ baseURL: API_BASE_URL });
 
+// Attach the JWT (if we have one) to every outgoing request. Reading straight
+// from localStorage keeps this decoupled from React state/context.
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // GET /api/recipes, optionally filtered by cuisine and/or search term.
 // params = { cuisine?: string, search?: string }
 export async function fetchRecipes(params = {}) {
   const { data } = await api.get("/recipes", { params });
+  return data;
+}
+
+// GET /api/recipes/mine (requires auth — the axios instance should already
+// be attaching the Authorization header if you're logged in)
+export async function fetchMyRecipes() {
+  const { data } = await api.get("/recipes/mine");
   return data;
 }
 
